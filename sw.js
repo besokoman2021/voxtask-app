@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lifeorganizer-cache-v4';
+const CACHE_NAME = 'lifeorganizer-cache-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -63,5 +63,24 @@ self.addEventListener('fetch', (e) => {
           }
         });
       })
+  );
+});
+
+// Notification Click Event (Brings the app window to the foreground when tapped)
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close(); // Close the notification popup
+  
+  // Look for existing window client and focus it, or open a new one
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow('./');
+      }
+    })
   );
 });

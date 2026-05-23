@@ -525,20 +525,69 @@ function playFallbackNotificationSound() {
   }
 }
 
+// Request native push notification permission from the user
+function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().then(permission => {
+      console.log('Notification permission status:', permission);
+    });
+  }
+}
+
+// Show native push notification (works perfectly on mobile lockscreens/shade as PWA!)
+function showNotification(task) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  
+  const title = `🚨 منظم الحياة: ${task.title}`;
+  const options = {
+    body: task.desc || 'حان وقت إنجاز مهمتك الرائعة الآن! 🎯',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    vibrate: [200, 100, 200],
+    tag: 'life-organizer-reminder-' + task.id,
+    requireInteraction: true // Keeps the notification visible until user interacts with it
+  };
+  
+  // Use Service Worker if registered to display a robust native PWA notification
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then(registration => {
+      registration.showNotification(title, options);
+    }).catch(err => {
+      console.warn('SW notification failed, falling back to Web Notification:', err);
+      new Notification(title, options);
+    });
+  } else {
+    new Notification(title, options);
+  }
+}
+
 // User-triggered test of the audio context & text-to-speech engine
 function testSoundAndSpeech() {
   try {
     console.log('إطلاق اختبار الصوت والتنبيه الصوتي...');
     
+    // Request permission if not already granted
+    requestNotificationPermission();
+    
     // 1. Play Synthesized offline chime
     playFallbackNotificationSound();
     
-    // 2. Fire speech test
-    speakText("تنبيه من منظم الحياة. تم تشغيل واختبار نظام التنبيه الصوتي بنجاح.", function() {
+    // 2. Trigger a test push notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+      showNotification({
+        id: 'test_notification',
+        title: 'تجربة الإشعارات المكتوبة 📱',
+        desc: 'أهلاً بك! هذا إشعار مكتوب من منظم الحياة للتأكيد على عمل النظام بكفاءة تامة.'
+      });
+    }
+    
+    // 3. Fire speech test
+    speakText("تنبيه من منظم الحياة. تم تشغيل واختبار نظام التنبيه الصوتي والإشعارات بنجاح.", function() {
       // After speech ends, check if Arabic voice exists
       if (!cachedArabicVoice) {
         setTimeout(() => {
-          alert('💡 تلميح منظم الحياة الصوتي:\n\nلقد قمنا بتشغيل التنبيه الموسيقي بنجاح! إذا سمعت جرس الرنين ولكن لم تسمع نطق الكلمات بالعربي، فهذا يعني أن نظام التشغيل بجهازك (ويندوز) يفتقر لحزمة الصوت العربي.\n\nلتفعيل نطق الكلمات باللغة العربية:\n1. اذهب لقائمة ابدأ (Start) ثم الإعدادات (Settings).\n2. اختر الوقت واللغة (Time & Language) ثم الكلام (Speech).\n3. تحت قسم إضافة أصوات (Add Voices)، ابحث عن "العربية" وقم بتثبيتها.\n4. أعد تنشيط صفحة المتصفح وستستمع للتلاوة العربية بكل وضوح!');
+          alert('💡 تلميح منظم الحياة الصوتي:\n\nلقد قمنا بتشغيل التنبيه الموسيقي بنجاح! إذا سمعت جرس الرنين ولكن لم تسمع نطق الكلمات بالعربي، فهذا يعني أن نظام التشغيل بجهازك يفتقر لحزمة الصوت العربي.\n\nلتفعيل نطق الكلمات باللغة العربية:\n1. اذهب لقائمة ابدأ (Start) ثم الإعدادات (Settings).\n2. اختر الوقت واللغة (Time & Language) ثم الكلام (Speech).\n3. تحت قسم إضافة أصوات (Add Voices)، ابحث عن "العربية" وقم بتثبيتها.\n4. أعد تنشيط صفحة المتصفح وستستمع للتلاوة العربية بكل وضوح!');
         }, 500);
       }
     });
@@ -563,12 +612,26 @@ function loadVoices() {
   cachedVoices = window.speechSynthesis.getVoices();
   console.log('Loaded TTS voices count:', cachedVoices.length);
   
-  // Try to find Arabic voice
-  cachedArabicVoice = cachedVoices.find(v => v.lang.startsWith('ar'));
+  // Find all Arabic voices
+  const arabicVoices = cachedVoices.filter(v => v.lang.toLowerCase().startsWith('ar'));
   
-  if (cachedArabicVoice) {
-    console.log('✅ Arabic voice found:', cachedArabicVoice.name, cachedArabicVoice.lang);
+  if (arabicVoices.length > 0) {
+    // Look for a male Arabic voice first (Microsoft Naayf, Apple Maged, Apple Tarik, or voice containing 'male')
+    const maleArabicKeywords = ['naayf', 'maged', 'tarik', 'male'];
+    const maleVoice = arabicVoices.find(v => 
+      maleArabicKeywords.some(keyword => v.name.toLowerCase().includes(keyword))
+    );
+    
+    if (maleVoice) {
+      cachedArabicVoice = maleVoice;
+      console.log('✅ Male Arabic voice found & prioritized:', maleVoice.name, maleVoice.lang);
+    } else {
+      // Fallback to first available Arabic voice (which could be female or default)
+      cachedArabicVoice = arabicVoices[0];
+      console.log('✅ Default Arabic voice selected (no specific male voice found):', cachedArabicVoice.name, cachedArabicVoice.lang);
+    }
   } else {
+    cachedArabicVoice = null;
     console.warn('⚠️ No Arabic voice installed on this system. Will use default system voice.');
     // Log all available voices for debugging
     cachedVoices.forEach(v => console.log('  Available voice:', v.name, v.lang));
@@ -641,10 +704,13 @@ function speakText(text, onEndCallback) {
 }
 
 function playVoiceReminder(task) {
-  // 1. Synthesize bell chime (100% reliable and offline-first!)
+  // 1. Show native locked-screen written notification
+  showNotification(task);
+
+  // 2. Synthesize bell chime (100% reliable and offline-first!)
   playFallbackNotificationSound();
 
-  // 2. Play secondary local alarm sound if loaded
+  // 3. Play secondary local alarm sound if loaded
   try {
     if (alarmSound) {
       alarmSound.currentTime = 0;
@@ -654,7 +720,7 @@ function playVoiceReminder(task) {
     console.warn("Could not play alarm:", error);
   }
 
-  // 3. Speak the task name
+  // 4. Speak the task name out loud
   const cleanTitle = task.title.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, "");
   speakText(`تنبيه: حان وقت القيام بمهمة: ${cleanTitle}`);
 }
@@ -673,13 +739,6 @@ window.playVoiceReminderById = function(id) {
     console.error('Failed to trigger voice reminder:', e);
   }
 };
-
-// Listen to voices population in case they load asynchronously
-if ('speechSynthesis' in window) {
-  window.speechSynthesis.onvoiceschanged = () => {
-    console.log('SpeechSynthesis voices updated in background.');
-  };
-}
 
 function checkReminders() {
   try {
@@ -717,6 +776,9 @@ function handleTaskSubmit(e) {
   try {
     e.preventDefault();
     console.log('جاري معالجة إرسال المهمة الجديدة...');
+    
+    // Request permission on task save
+    requestNotificationPermission();
 
     if (!taskTitleInput || !taskReminderInput || !taskPrioritySelect || !taskCategorySelect) {
       throw new Error('لم يتم تحميل بعض عناصر الإدخال في الصفحة بشكل صحيح.');
