@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="تطبيق متطور لإدارة وتدوين المهام مع منبه صوتي ومساعد إملاء وتتبع للأداء بالكامل دون اتصال بالإنترنت.">
+  <title>منظم الحياة | منظم المهام الصوتي الذكي</title>
+  
+  <!-- PWA meta tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0ea5e9">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  
+  <!-- Web fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="light-mode">
+  
+  <!-- Backgound blobs for glassmorphism aesthetics -->
+  <div class="glass-bg-blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <div class="app-container">
+    
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="header-logo">
+        <div class="logo-icon">
+          <i data-lucide="mic"></i>
+          <span class="pulse-ring"></span>
+        </div>
+        <div class="logo-text">
+          <h1>منظم الحياة</h1>
+          <p>منظم المهام الصوتي</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Live Clock -->
+        <div class="live-clock" id="live-clock">
+          <i data-lucide="clock" class="clock-icon"></i>
+          <span id="time-display">--:--:--</span>
+        </div>
+
+        <!-- Voice Test Button -->
+        <button id="voice-test-btn" class="icon-btn" title="اختبار التنبيه الصوتي والرنين" style="background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.15); color: #10b981;">
+          <i data-lucide="volume-2" style="color: #10b981;"></i>
+          <span>تجربة الصوت</span>
+        </button>
+
+        <!-- PWA Install Button -->
+        <button id="pwa-install-btn" class="icon-btn pwa-btn hidden" title="تثبيت التطبيق على جهازك">
+          <i data-lucide="download"></i>
+          <span>تثبيت</span>
+        </button>
+
+        <!-- Toggle Dark/Light Mode -->
+        <button id="theme-toggle-btn" class="icon-btn" title="تبديل وضع الإضاءة">
+          <i data-lucide="moon" id="theme-icon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <main class="main-content">
+      
+      <!-- GRID LAYOUT FOR STATS & CREATOR -->
+      <section class="top-section">
+        
+        <!-- PRODUCTIVITY & PERFORMANCE DASHBOARD -->
+        <div class="dashboard-panel card">
+          <div class="panel-header">
+            <h2 class="panel-title">
+              <i data-lucide="trending-up"></i>
+              تقييم الأداء والإنتاجية
+            </h2>
+            <span class="performance-badge" id="performance-badge">مبتدئ ✨</span>
+          </div>
+
+          <div class="stats-container">
+            <!-- Circular Progress SVG -->
+            <div class="progress-radial-wrapper">
+              <svg class="progress-ring" width="120" height="120">
+                <circle class="progress-ring__circle-bg" stroke="rgba(14, 165, 233, 0.15)" stroke-width="8" fill="transparent" r="50" cx="60" cy="60" />
+                <circle class="progress-ring__circle" id="progress-circle" stroke="#0ea5e9" stroke-width="8" stroke-linecap="round" fill="transparent" r="50" cx="60" cy="60" />
+              </svg>
+              <div class="progress-text">
+                <span id="completion-ratio">0%</span>
+                <span class="subtext">نسبة الإنجاز</span>
+              </div>
+            </div>
+
+            <!-- Quantitative Stats -->
+            <div class="stats-metrics">
+              <div class="metric-card">
+                <div class="metric-icon active-tasks-bg">
+                  <i data-lucide="list-todo"></i>
+                </div>
+                <div class="metric-data">
+                  <span class="metric-value" id="stat-active-count">0</span>
+                  <span class="metric-label">مهام نشطة</span>
+                </div>
+              </div>
+
+              <div class="metric-card">
+                <div class="metric-icon completed-tasks-bg">
+                  <i data-lucide="check-circle2"></i>
+                </div>
+                <div class="metric-data">
+                  <span class="metric-value" id="stat-completed-count">0</span>
+                  <span class="metric-label">مهام مكتملة</span>
+                </div>
+              </div>
+
+              <div class="metric-card">
+                <div class="metric-icon streak-bg">
+                  <i data-lucide="zap"></i>
+                </div>
+                <div class="metric-data">
+                  <span class="metric-value" id="stat-streak-count">0</span>
+                  <span class="metric-label">أيام متتالية</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Encouragement message -->
+          <div class="encouragement-bar" id="encouragement-bar">
+            ابدأ يومك بنشاط وأضف مهامك لتصل للمستوى التالي! 🚀
+          </div>
+        </div>
+
+        <!-- TASK CREATOR PANEL -->
+        <div class="creator-panel card">
+          <div class="panel-header">
+            <h2 class="panel-title">
+              <i data-lucide="plus-circle"></i>
+              إضافة مهمة جديدة
+            </h2>
+            <button id="voice-input-btn" class="voice-mic-btn" title="اضغط للإملاء الصوتي">
+              <i data-lucide="mic" class="mic-icon"></i>
+              <span class="mic-wave"></span>
+              <span>إملاء صوتي</span>
+            </button>
+          </div>
+
+          <form id="task-form" class="task-form">
+            <div class="form-group input-with-icon">
+              <label for="task-title">عنوان المهمة *</label>
+              <div class="input-wrapper">
+                <i data-lucide="type" class="field-icon"></i>
+                <input type="text" id="task-title" placeholder="مثال: قراءة كتاب، موعد الطبيب..." required autocomplete="off">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="task-desc">الوصف أو التفاصيل (اختياري)</label>
+              <div class="input-wrapper">
+                <i data-lucide="align-right" class="field-icon top-align"></i>
+                <textarea id="task-desc" rows="2" placeholder="أضف تفاصيل إضافية هنا..."></textarea>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="task-reminder">وقت التذكير الصوتي *</label>
+                <div class="input-wrapper">
+                  <i data-lucide="bell-ring" class="field-icon"></i>
+                  <input type="datetime-local" id="task-reminder" required>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="task-priority">أهمية المهمة</label>
+                <div class="input-wrapper">
+                  <i data-lucide="flag" class="field-icon"></i>
+                  <select id="task-priority">
+                    <option value="low">منخفضة 🟢</option>
+                    <option value="medium" selected>متوسطة 🟡</option>
+                    <option value="high">مرتفعة 🔴</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="task-category">التصنيف</label>
+                <div class="input-wrapper">
+                  <i data-lucide="tag" class="field-icon"></i>
+                  <select id="task-category">
+                    <option value="work">🏢 العمل</option>
+                    <option value="personal" selected>🏠 شخصي</option>
+                    <option value="study">📚 الدراسة</option>
+                    <option value="health">💪 صحة ورياضة</option>
+                    <option value="other">⚙️ أخرى</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" id="add-task-btn" class="submit-btn">
+              <i data-lucide="plus"></i>
+              <span>حفظ المهمة وتفعيل المنبه الصوتي</span>
+            </button>
+          </form>
+        </div>
+
+      </section>
+
+      <!-- BOTTOM SECTION: ACTIVE AND COMPLETED ARCHIVE -->
+      <section class="bottom-section">
+        
+        <!-- ACTIVE TASKS LIST -->
+        <div class="tasks-panel card">
+          <div class="panel-header">
+            <h2 class="panel-title">
+              <i data-lucide="calendar"></i>
+              المهام المتبقية
+              <span class="count-badge active" id="active-badge-count">0</span>
+            </h2>
+            <div class="filter-controls">
+              <select id="filter-priority" class="filter-select" title="تصفية حسب الأهمية">
+                <option value="all">كل الأولويات</option>
+                <option value="high">مرتفعة فقط</option>
+                <option value="medium">متوسطة فقط</option>
+                <option value="low">منخفضة فقط</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="tasks-list-container" id="active-tasks-list">
+            <!-- Empty state template -->
+            <div class="empty-state" id="active-empty-state">
+              <div class="empty-icon-wrapper">
+                <i data-lucide="sparkles" class="empty-icon animate-float"></i>
+              </div>
+              <h3>لا توجد مهام نشطة حالياً!</h3>
+              <p>رائع! لقد أنجزت كل شيء أو ربما حان الوقت لإضافة مهمة جديدة للتذكير بها صوتياً.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- COMPLETED ARCHIVE PANEL -->
+        <div class="archive-panel card">
+          <div class="panel-header">
+            <h2 class="panel-title">
+              <i data-lucide="archive"></i>
+              أرشيف المهام المنجزة
+              <span class="count-badge completed" id="completed-badge-count">0</span>
+            </h2>
+            <button id="clear-archive-btn" class="clear-btn" title="حذف كل الأرشيف نهائياً">
+              <i data-lucide="trash-2"></i>
+              <span>تفريغ الأرشيف</span>
+            </button>
+          </div>
+
+          <div class="tasks-list-container" id="completed-tasks-list">
+            <!-- Empty state template -->
+            <div class="empty-state" id="completed-empty-state">
+              <div class="empty-icon-wrapper">
+                <i data-lucide="package-open" class="empty-icon"></i>
+              </div>
+              <h3>الأرشيف فارغ!</h3>
+              <p>عندما تنجز أي مهمة، ستنتقل تلقائياً إلى هنا لتوثيق نجاحك المتميز.</p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+      <p>تطبيق <strong>منظم الحياة</strong> &copy; 2026. تم بناؤه بأحدث تقنيات الويب PWA ليكون رفيقك الصوتي الذكي.</p>
+      <div class="footer-links">
+        <a href="#how-it-works" id="help-modal-trigger"><i data-lucide="help-circle"></i> كيف يعمل التطبيق؟</a>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- SPEECH SPEAKING FLOATING NOTIFICATION -->
+  <div id="voice-indicator" class="voice-speaking-indicator hidden">
+    <div class="sound-wave-bars">
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </div>
+    <span class="voice-text" id="voice-indicator-text">جاري قراءة التذكير الصوتي...</span>
+  </div>
+
+  <!-- HELP & INSTRUCTIONS DIALOG/MODAL -->
+  <dialog id="help-modal" class="custom-dialog">
+    <div class="dialog-content">
+      <button class="dialog-close-btn" id="help-close-btn"><i data-lucide="x"></i></button>
+      <h2>
+        <i data-lucide="info"></i>
+        كيف تستخدم تطبيق منظم الحياة الصوتي؟
+      </h2>
+      
+      <div class="help-section">
+        <h3>🎙️ الإملاء الصوتي الذكي</h3>
+        <p>بدلاً من كتابة عنوان المهمة، اضغط على زر <strong>"إملاء صوتي"</strong> بجانب العنوان، ثم تحدث بلغتك العربية الطبيعية. سيقوم التطبيق بتحويل كلامك لنص مكتوب فوراً!</p>
+      </div>
+
+      <div class="help-section">
+        <h3>📢 المنبه والتذكير الصوتي</h3>
+        <p>عند تعيين وقت تذكير، تأكد من إبقاء التطبيق مفتوحاً في الخلفية. عند حلول الوقت تماماً:</p>
+        <ul>
+          <li>سيقوم التطبيق بتشغيل رنة تنبيه خفيفة.</li>
+          <li>سيقوم التطبيق بقراءة عنوان المهمة صوتياً باللغة العربية بوضوح لينبهك فوراً.</li>
+        </ul>
+      </div>
+
+      <div class="help-section">
+        <h3>🏆 تقييم الأداء والإنتاجية</h3>
+        <p>كل مهمة تنجزها ترفع من نسبة إنجازك اليومية وتزيد نقاطك. استمر في إنجاز المهام يومياً لرفع عداد <strong>"أيام متتالية"</strong> لتبقي شعلة الحماس والنشاط متقدة، وترتفع رتبتك من "مبتدئ" إلى "بطل الإنتاجية"!</p>
+      </div>
+
+      <div class="help-section">
+        <h3>📲 تطبيق ويب تقدمي PWA</h3>
+        <p>يمكنك تثبيت هذا التطبيق على هاتفك (أندرويد أو آيفون) أو جهاز الكمبيوتر ليعمل كتطبيق مستقل تماماً وبسرعة فائقة حتى بدون وجود اتصال بالإنترنت.</p>
+      </div>
+      
+      <button class="primary-btn close-action-btn" id="help-ok-btn">فهمت ذلك، ابدأ الآن!</button>
+    </div>
+  </dialog>
+
+  <!-- GENTLE ALARM SOUND (Web Audio API fallback or synthesized Audio) -->
+  <audio id="alarm-sound" src="https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav" preload="auto"></audio>
+
+  <!-- Script Registration & Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
