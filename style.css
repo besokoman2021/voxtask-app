@@ -1610,7 +1610,121 @@ body.dark-mode .blob {
     font-size: 11px;
   }
   .primary-btn {
-    padding: 10px;
     font-size: 12px;
+  }
+}
+
+/* ==========================================================================
+   ANDROID BATTERY OPTIMIZATION BANNER & MODAL STYLES
+   ========================================================================== */
+
+.android-battery-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12) 0%, rgba(14, 165, 233, 0.04) 100%);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+  direction: rtl;
+}
+
+.android-battery-banner.hidden {
+  display: none !important;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  flex-grow: 1;
+}
+
+.banner-icon {
+  color: var(--primary);
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.banner-btn {
+  padding: 8px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Cairo', sans-serif;
+  transition: var(--transition);
+  box-shadow: 0 4px 10px var(--primary-glow);
+  white-space: nowrap;
+}
+
+.banner-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.banner-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 50%;
+  transition: var(--transition);
+}
+
+.banner-close:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--priority-high);
+}
+
+.banner-close i {
+  width: 16px;
+  height: 16px;
+}
+
+.animate-fade-in {
+  animation: fade-in-banner 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fade-in-banner {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .android-battery-banner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 16px;
+    gap: 12px;
+    text-align: right;
+  }
+  .banner-actions {
+    justify-content: space-between;
+  }
+  .banner-btn {
+    flex-grow: 1;
+    text-align: center;
   }
 }

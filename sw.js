@@ -66,20 +66,45 @@ self.addEventListener('fetch', (e) => {
   );
 });
 
-// Notification Click Event (Brings the app window to the foreground when tapped)
+// Notification Click Event (Handles actions and wakes up/focuses the app)
 self.addEventListener('notificationclick', (e) => {
   e.notification.close(); // Close the notification popup
   
-  // Look for existing window client and focus it, or open a new one
+  // Extract task ID from tag (tag format: life-reminder-ID)
+  let taskId = null;
+  if (e.notification.tag && e.notification.tag.startsWith('life-reminder-')) {
+    taskId = e.notification.tag.replace('life-reminder-', '');
+  }
+  
+  const action = e.action; // 'done', 'snooze', or '' (regular click)
+  
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if ('focus' in client) {
-          return client.focus();
+      // Look for an existing open tab of the app
+      let client = clientList.find(c => 'focus' in c);
+      
+      if (client) {
+        // Focus the existing tab and post a message to it
+        return client.focus().then((focusedClient) => {
+          if (focusedClient && focusedClient.postMessage) {
+            focusedClient.postMessage({
+              type: 'notification-click',
+              action: action,
+              taskId: taskId
+            });
+          }
+        });
+      } else {
+        // Tab is closed: open a new window and pass action/taskId via URL params
+        if (self.clients.openWindow) {
+          let url = './';
+          if (action && taskId) {
+            url += `?action=${encodeURIComponent(action)}&taskId=${encodeURIComponent(taskId)}`;
+          } else if (taskId) {
+            url += `?action=view&taskId=${encodeURIComponent(taskId)}`;
+          }
+          return self.clients.openWindow(url);
         }
-      }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow('./');
       }
     })
   );

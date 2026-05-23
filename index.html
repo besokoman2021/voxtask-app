@@ -74,6 +74,18 @@
       </div>
     </header>
 
+    <!-- Android Background Notification Banner -->
+    <div id="android-battery-banner" class="android-battery-banner hidden animate-fade-in">
+      <div class="banner-content">
+        <i data-lucide="info" class="banner-icon"></i>
+        <span>لضمان سماع التنبيه الصوتي أثناء قفل الشاشة على أندرويد، اضبط إعدادات البطارية إلى <strong>غير مقيد (Unrestricted)</strong>.</span>
+      </div>
+      <div class="banner-actions">
+        <button id="banner-guide-btn" class="banner-btn">عرض الخطوات ⚙️</button>
+        <button id="banner-close-btn" class="banner-close" title="إغلاق التنبيه"><i data-lucide="x"></i></button>
+      </div>
+    </div>
+
     <!-- MAIN DASHBOARD CONTENT -->
     <main class="main-content">
       
@@ -338,6 +350,42 @@
       </div>
       
       <button class="primary-btn close-action-btn" id="help-ok-btn">فهمت ذلك، ابدأ الآن!</button>
+    </div>
+  </dialog>
+
+  <!-- ANDROID BATTERY OPTIMIZATION GUIDE MODAL -->
+  <dialog id="battery-modal" class="custom-dialog">
+    <div class="dialog-content" style="max-width: 460px;">
+      <button class="dialog-close-btn" id="battery-close-btn"><i data-lucide="x"></i></button>
+      <h2>
+        <i data-lucide="settings" style="color: #0ea5e9;"></i>
+        تفعيل التنبيه الصوتي في الخلفية (أندرويد)
+      </h2>
+      
+      <div class="help-section">
+        <p style="line-height: 1.6; margin-bottom: 16px;">
+          يقوم نظام أندرويد بتجميد تطبيقات الويب في الخلفية لتوفير البطارية. لضمان تشغيل المنبه ونطق التنبيهات حتى عند قفل الهاتف، اتبع هذه الخطوات البسيطة:
+        </p>
+        
+        <div style="background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.15); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+          <ol style="margin-right: 20px; line-height: 1.8; color: var(--text-muted); font-size: 14.5px;">
+            <li>اضغط مطولاً على أيقونة تطبيق <strong>منظم الحياة</strong> (أو متصفح <strong>Chrome</strong> إذا كنت تستخدمه من المتصفح).</li>
+            <li>اختر <strong>"معلومات التطبيق" (App Info)</strong> أو رمز <i data-lucide="info" style="display:inline-block; width:16px; height:16px; vertical-align:middle;"></i>.</li>
+            <li>ادخل إلى قسم <strong>"البطارية" (Battery)</strong> أو "توفير الطاقة".</li>
+            <li>قم بتغيير الضبط من "محسّن" (Optimized) إلى <strong>"غير مقيد" (Unrestricted)</strong>.</li>
+            <li>تأكد أيضاً من تفعيل <strong>"السماح بالإشعارات"</strong>.</li>
+          </ol>
+        </div>
+        
+        <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px; padding: 14px; display: flex; align-items: start; gap: 10px;">
+          <i data-lucide="shield-check" style="color: #10b981; flex-shrink: 0; margin-top: 2px;"></i>
+          <p style="font-size: 13px; color: #10b981; line-height: 1.5; margin: 0;">
+            <strong>نظام التنبيه الصامت الذكي:</strong> بمجرد ضبط الإعدادات أعلاه، سيقوم التطبيق بتشغيل مسار صوتي صامت تلقائياً عند وجود مهام تذكير نشطة لإبقاء النظام مستيقظاً دون استهلاك زائد للبطارية.
+          </p>
+        </div>
+      </div>
+      
+      <button class="primary-btn close-action-btn" id="battery-ok-btn" style="background: linear-gradient(135deg, #0ea5e9, #0284c7);">تم الفهم وضبط الإعدادات 👍</button>
     </div>
   </dialog>
 

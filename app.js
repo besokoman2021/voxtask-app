@@ -136,6 +136,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (helpCloseBtn && helpModal) helpCloseBtn.addEventListener('click', () => helpModal.close());
     if (helpOkBtn && helpModal) helpOkBtn.addEventListener('click', () => helpModal.close());
 
+    // Initialize new background services and Android guides
+    initAndroidBatteryBanner();
+    checkUrlParamsForAction();
+    enableBackgroundAudioOnGesture();
+    
+    // Service Worker message listener for notification actions
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'notification-click') {
+          handleNotificationAction(event.data.action, event.data.taskId);
+        }
+      });
+    }
+
     // Trigger Lucide icons safely
     safeCreateIcons();
     console.log('منظم الحياة: تم التشغيل والتهيئة بنجاح تام! 🚀');
@@ -199,12 +213,22 @@ function loadState() {
 
   // Check if streak is broken (more than 48 hours since last completion)
   checkStreakValidity();
+  
+  // Sync background audio keep-alive state on load
+  if (typeof BackgroundAudioService !== 'undefined') {
+    BackgroundAudioService.updateState(tasks);
+  }
 }
 
 function saveState() {
   storage.setItem('lifeorganizer_tasks', JSON.stringify(tasks));
   storage.setItem('lifeorganizer_streak', streakCount.toString());
   storage.setItem('lifeorganizer_last_completed_date', lastCompletedDate);
+  
+  // Sync background audio keep-alive state on save
+  if (typeof BackgroundAudioService !== 'undefined') {
+    BackgroundAudioService.updateState(tasks);
+  }
 }
 
 // Check if streak was broken (e.g. user hasn't completed a task yesterday)
@@ -888,9 +912,192 @@ function playVoiceReminder(task) {
     console.warn("Could not play alarm:", error);
   }
 
-  // 5. Speak the task name out loud
+  // 5. Speak the task name out loud (Optimized for foreground vs background states)
   const cleanTitle = task.title.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, "");
-  speakText(`تنبيه: حان وقت القيام بمهمة: ${cleanTitle}`);
+  const textToSpeak = `تنبيه: حان وقت القيام بمهمة: ${cleanTitle}`;
+  
+  if (document.visibilityState === 'hidden') {
+    speakTextBackground(textToSpeak);
+  } else {
+    speakText(textToSpeak);
+  }
+}
+
+// Background Audio Keep-Alive Service using silent MP3
+const BackgroundAudioService = {
+  audioElement: null,
+  isActivated: false,
+  
+  init() {
+    if (this.audioElement) return;
+    
+    this.audioElement = document.createElement('audio');
+    this.audioElement.id = 'silent-keepalive';
+    // 1-second silent MP3 Base64 data URI
+    this.audioElement.src = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV////////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAAACQDkAAAAAAAAAGw9wrNaQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/+MYxAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+MYxDsAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+MYxHYAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+    this.audioElement.loop = true;
+    this.audioElement.volume = 0.01; // extremely low volume to prevent interference
+    document.body.appendChild(this.audioElement);
+    console.log('Background Keep-Alive audio initialized.');
+  },
+  
+  start() {
+    this.init();
+    if (this.isActivated) return;
+    
+    this.audioElement.play().then(() => {
+      this.isActivated = true;
+      console.log('🔋 Background Keep-Alive Audio ACTIVE - preventing PWA suspension.');
+    }).catch(err => {
+      console.warn('⚠️ Keep-Alive audio playback blocked (needs user interaction):', err);
+    });
+  },
+  
+  stop() {
+    if (this.audioElement && this.isActivated) {
+      this.audioElement.pause();
+      this.isActivated = false;
+      console.log('🔋 Background Keep-Alive Audio STOPPED - no active reminders.');
+    }
+  },
+  
+  updateState(tasksList) {
+    const now = new Date();
+    // Start keepalive if there are pending future reminders
+    const hasUpcomingReminders = tasksList.some(task => 
+      !task.completed && 
+      !task.reminded && 
+      task.reminder && 
+      new Date(task.reminder) > now
+    );
+    
+    if (hasUpcomingReminders) {
+      this.start();
+    } else {
+      this.stop();
+    }
+  }
+};
+
+// Enable background audio on first user interaction
+function enableBackgroundAudioOnGesture() {
+  const startAudio = () => {
+    BackgroundAudioService.updateState(tasks);
+    document.removeEventListener('click', startAudio);
+    document.removeEventListener('touchstart', startAudio);
+  };
+  document.addEventListener('click', startAudio);
+  document.addEventListener('touchstart', startAudio);
+}
+
+// Background speech playback using Google Translate TTS URL played as an HTML Audio tag
+function speakTextBackground(text) {
+  try {
+    console.log('🔊 Playing background TTS audio via Google TTS:', text);
+    const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ar&client=tw-ob&q=${encodeURIComponent(text)}`;
+    const bgSpeechAudio = new Audio(audioUrl);
+    bgSpeechAudio.volume = 1.0;
+    
+    bgSpeechAudio.play().then(() => {
+      console.log('🔊 Background TTS played successfully.');
+    }).catch(err => {
+      console.warn('⚠️ Background TTS failed or blocked:', err);
+      // Try local SpeechSynthesis as fallback
+      speakText(text);
+    });
+  } catch (e) {
+    console.error('speakTextBackground exception:', e);
+    speakText(text);
+  }
+}
+
+// Handles notification actions clicked by the user
+function handleNotificationAction(action, taskId) {
+  console.log(`Notification action dispatch: action=${action}, taskId=${taskId}`);
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  
+  if (action === 'done') {
+    completeTask(taskId);
+    speakText('تم تحديد المهمة كمكتملة بنجاح.');
+  } else if (action === 'snooze') {
+    snoozeTask(taskId);
+    speakText('تم تأجيل التذكير لخمس دقائق.');
+  } else {
+    // Regular click (open app and show details)
+    showInAppAlert(task);
+    const cleanTitle = task.title.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, "");
+    speakText(`حان وقت القيام بمهمة: ${cleanTitle}`);
+  }
+}
+
+// Checks URL search parameters for notification actions on cold boot
+function checkUrlParamsForAction() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    const taskId = params.get('taskId');
+    
+    if (action && taskId) {
+      console.log(`Cold start notification action: action=${action}, taskId=${taskId}`);
+      setTimeout(() => {
+        handleNotificationAction(action, taskId);
+        // Clear params to avoid re-triggering
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 800);
+    }
+  } catch (e) {
+    console.error('checkUrlParamsForAction failed:', e);
+  }
+}
+
+// Android battery banner and optimization steps modal handler
+function initAndroidBatteryBanner() {
+  const banner = document.getElementById('android-battery-banner');
+  const modal = document.getElementById('battery-modal');
+  if (!banner || !modal) return;
+  
+  // Show guide banner on Android devices if not dismissed
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isDismissed = storage.getItem('android_battery_banner_dismissed') === 'true';
+  
+  if (isAndroid && !isDismissed) {
+    banner.classList.remove('hidden');
+  }
+  
+  // Bind listeners
+  const closeBtn = document.getElementById('banner-close-btn');
+  const guideBtn = document.getElementById('banner-guide-btn');
+  const modalCloseBtn = document.getElementById('battery-close-btn');
+  const modalOkBtn = document.getElementById('battery-ok-btn');
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      banner.classList.add('hidden');
+      storage.setItem('android_battery_banner_dismissed', 'true');
+    });
+  }
+  
+  if (guideBtn) {
+    guideBtn.addEventListener('click', () => {
+      modal.showModal();
+    });
+  }
+  
+  if (modalCloseBtn) {
+    modalCloseBtn.addEventListener('click', () => {
+      modal.close();
+    });
+  }
+  
+  if (modalOkBtn) {
+    modalOkBtn.addEventListener('click', () => {
+      modal.close();
+      banner.classList.add('hidden');
+      storage.setItem('android_battery_banner_dismissed', 'true');
+    });
+  }
 }
 
 // Expose playVoiceReminderById globally so inline onclick handlers can call it
