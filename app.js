@@ -535,31 +535,145 @@ function requestNotificationPermission() {
   }
 }
 
-// Show native push notification (works perfectly on mobile lockscreens/shade as PWA!)
+// Show native push notification (Android-optimized with expanded text)
 function showNotification(task) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   
-  const title = `🚨 منظم الحياة: ${task.title}`;
+  const cleanTitle = task.title.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, "");
+  
+  const title = 'منظم الحياة - تذكير مهمة';
+  const bodyText = 'حان الآن وقت: ' + cleanTitle + (task.desc ? '\n' + task.desc : '');
+  
   const options = {
-    body: task.desc || 'حان وقت إنجاز مهمتك الرائعة الآن! 🎯',
+    body: bodyText,
     icon: 'icons/icon-192.png',
     badge: 'icons/icon-192.png',
-    vibrate: [200, 100, 200],
-    tag: 'life-organizer-reminder-' + task.id,
-    requireInteraction: true // Keeps the notification visible until user interacts with it
+    vibrate: [300, 150, 300, 150, 300],
+    tag: 'life-reminder-' + task.id,
+    renotify: true,
+    silent: false,
+    requireInteraction: true,
+    actions: [
+      { action: 'done', title: 'تم الإنجاز ✅' },
+      { action: 'snooze', title: 'تأجيل 5 دقائق ⏰' }
+    ]
   };
   
-  // Use Service Worker if registered to display a robust native PWA notification
+  // Use Service Worker for persistent notifications on Android
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
     navigator.serviceWorker.ready.then(registration => {
       registration.showNotification(title, options);
+      console.log('📱 SW Notification sent:', cleanTitle);
     }).catch(err => {
-      console.warn('SW notification failed, falling back to Web Notification:', err);
-      new Notification(title, options);
+      console.warn('SW notification failed:', err);
+      try { new Notification(title, options); } catch(e) {}
     });
   } else {
-    new Notification(title, options);
+    try { new Notification(title, options); } catch(e) {}
   }
+}
+
+// Show in-app fullscreen alert popup (GUARANTEED to show on Android even without notification permission)
+function showInAppAlert(task) {
+  // Remove any existing alert first
+  const existingAlert = document.getElementById('task-alert-overlay');
+  if (existingAlert) existingAlert.remove();
+  
+  const overlay = document.createElement('div');
+  overlay.id = 'task-alert-overlay';
+  overlay.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    z-index: 99999;
+    display: flex; justify-content: center; align-items: center;
+    padding: 20px;
+    animation: fadeIn 0.3s ease;
+  `;
+  
+  const card = document.createElement('div');
+  card.style.cssText = `
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border: 2px solid rgba(14, 165, 233, 0.4);
+    border-radius: 24px;
+    padding: 32px 28px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    color: white;
+    box-shadow: 0 25px 60px rgba(14, 165, 233, 0.3);
+    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    direction: rtl;
+  `;
+  
+  card.innerHTML = `
+    <div style="font-size: 56px; margin-bottom: 16px;">🔔</div>
+    <h2 style="font-size: 20px; font-weight: 800; color: #38bdf8; margin-bottom: 8px; line-height: 1.4;">
+      تنبيه من منظم الحياة
+    </h2>
+    <p style="font-size: 14px; color: #94a3b8; margin-bottom: 20px;">حان وقت إنجاز مهمتك</p>
+    <div style="
+      background: rgba(14, 165, 233, 0.1);
+      border: 1px solid rgba(14, 165, 233, 0.25);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 24px;
+    ">
+      <h3 style="font-size: 22px; font-weight: 800; color: white; margin-bottom: 8px; line-height: 1.5;">
+        ${task.title}
+      </h3>
+      ${task.desc ? `<p style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">${task.desc}</p>` : ''}
+    </div>
+    <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+      <button id="alert-done-btn" style="
+        flex: 1; min-width: 120px; padding: 14px 20px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white; border: none; border-radius: 12px;
+        font-size: 15px; font-weight: 700; cursor: pointer;
+        font-family: 'Cairo', sans-serif;
+      ">تم الإنجاز ✅</button>
+      <button id="alert-snooze-btn" style="
+        flex: 1; min-width: 120px; padding: 14px 20px;
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white; border: none; border-radius: 12px;
+        font-size: 15px; font-weight: 700; cursor: pointer;
+        font-family: 'Cairo', sans-serif;
+      ">تأجيل 5 دقائق ⏰</button>
+    </div>
+    <button id="alert-close-btn" style="
+      margin-top: 16px; padding: 10px 24px;
+      background: transparent; color: #64748b;
+      border: 1px solid #334155; border-radius: 10px;
+      font-size: 13px; cursor: pointer; width: 100%;
+      font-family: 'Cairo', sans-serif;
+    ">إغلاق التنبيه</button>
+  `;
+  
+  // Add animation keyframes
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  `;
+  document.head.appendChild(style);
+  
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  
+  // Button handlers
+  document.getElementById('alert-done-btn').addEventListener('click', () => {
+    overlay.remove();
+    completeTask(task.id);
+  });
+  
+  document.getElementById('alert-snooze-btn').addEventListener('click', () => {
+    overlay.remove();
+    snoozeTask(task.id);
+  });
+  
+  document.getElementById('alert-close-btn').addEventListener('click', () => {
+    overlay.remove();
+  });
 }
 
 // User-triggered test of the audio context & text-to-speech engine
@@ -577,17 +691,23 @@ function testSoundAndSpeech() {
     if ('Notification' in window && Notification.permission === 'granted') {
       showNotification({
         id: 'test_notification',
-        title: 'تجربة الإشعارات المكتوبة 📱',
-        desc: 'أهلاً بك! هذا إشعار مكتوب من منظم الحياة للتأكيد على عمل النظام بكفاءة تامة.'
+        title: 'تجربة الإشعارات المكتوبة',
+        desc: 'هذا إشعار تجريبي من منظم الحياة للتأكيد على عمل النظام.'
       });
     }
     
-    // 3. Fire speech test
+    // 3. Show in-app alert as demo
+    showInAppAlert({
+      id: 'test_alert',
+      title: 'هذا تنبيه تجريبي من منظم الحياة',
+      desc: 'إذا ظهر هذا التنبيه فإن النظام يعمل بكفاءة تامة! اضغط إغلاق للمتابعة.'
+    });
+    
+    // 4. Fire speech test
     speakText("تنبيه من منظم الحياة. تم تشغيل واختبار نظام التنبيه الصوتي والإشعارات بنجاح.", function() {
-      // After speech ends, check if Arabic voice exists
       if (!cachedArabicVoice) {
         setTimeout(() => {
-          alert('💡 تلميح منظم الحياة الصوتي:\n\nلقد قمنا بتشغيل التنبيه الموسيقي بنجاح! إذا سمعت جرس الرنين ولكن لم تسمع نطق الكلمات بالعربي، فهذا يعني أن نظام التشغيل بجهازك يفتقر لحزمة الصوت العربي.\n\nلتفعيل نطق الكلمات باللغة العربية:\n1. اذهب لقائمة ابدأ (Start) ثم الإعدادات (Settings).\n2. اختر الوقت واللغة (Time & Language) ثم الكلام (Speech).\n3. تحت قسم إضافة أصوات (Add Voices)، ابحث عن "العربية" وقم بتثبيتها.\n4. أعد تنشيط صفحة المتصفح وستستمع للتلاوة العربية بكل وضوح!');
+          alert('💡 تلميح:\n\nلتفعيل نطق الكلمات بالعربية:\nافتح إعدادات هاتفك ← إمكانية الوصول ← تحويل النص إلى كلام ← اختر محرك Google ← نزّل اللغة العربية.');
         }, 500);
       }
     });
@@ -749,13 +869,16 @@ function speakText(text, onEndCallback) {
 }
 
 function playVoiceReminder(task) {
-  // 1. Show native locked-screen written notification
+  // 1. Show native push notification (for lock screen / notification shade)
   showNotification(task);
 
-  // 2. Synthesize bell chime (100% reliable and offline-first!)
+  // 2. Show in-app fullscreen alert popup (GUARANTEED visible)
+  showInAppAlert(task);
+
+  // 3. Synthesize bell chime
   playFallbackNotificationSound();
 
-  // 3. Play secondary local alarm sound if loaded
+  // 4. Play secondary local alarm sound if loaded
   try {
     if (alarmSound) {
       alarmSound.currentTime = 0;
@@ -765,7 +888,7 @@ function playVoiceReminder(task) {
     console.warn("Could not play alarm:", error);
   }
 
-  // 4. Speak the task name out loud
+  // 5. Speak the task name out loud
   const cleanTitle = task.title.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, "");
   speakText(`تنبيه: حان وقت القيام بمهمة: ${cleanTitle}`);
 }
