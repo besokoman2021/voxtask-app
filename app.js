@@ -599,7 +599,10 @@ function testSoundAndSpeech() {
 }
 
 /* ==========================================================================
-   CENTRALIZED SPEECH ENGINE (Solves Chrome async voice loading bug)
+   CENTRALIZED SPEECH ENGINE
+   - Prioritizes Egyptian Arabic (ar-EG) male voices
+   - Lower pitch for masculine sound
+   - Slower rate for clearer Arabic reading
    ========================================================================== */
 
 // Global voice cache - populated when browser finishes loading voices
@@ -615,25 +618,64 @@ function loadVoices() {
   // Find all Arabic voices
   const arabicVoices = cachedVoices.filter(v => v.lang.toLowerCase().startsWith('ar'));
   
+  // Log all Arabic voices for debugging
   if (arabicVoices.length > 0) {
-    // Look for a male Arabic voice first (Microsoft Naayf, Apple Maged, Apple Tarik, or voice containing 'male')
-    const maleArabicKeywords = ['naayf', 'maged', 'tarik', 'male'];
-    const maleVoice = arabicVoices.find(v => 
-      maleArabicKeywords.some(keyword => v.name.toLowerCase().includes(keyword))
-    );
+    console.log('🔍 Available Arabic voices:');
+    arabicVoices.forEach(v => console.log(`   - "${v.name}" | lang: ${v.lang} | local: ${v.localService}`));
+  }
+  
+  if (arabicVoices.length > 0) {
+    // STEP 1: Look for Egyptian Arabic (ar-EG) voices first
+    const egyptianVoices = arabicVoices.filter(v => v.lang.toLowerCase() === 'ar-eg');
     
-    if (maleVoice) {
-      cachedArabicVoice = maleVoice;
-      console.log('✅ Male Arabic voice found & prioritized:', maleVoice.name, maleVoice.lang);
-    } else {
-      // Fallback to first available Arabic voice (which could be female or default)
-      cachedArabicVoice = arabicVoices[0];
-      console.log('✅ Default Arabic voice selected (no specific male voice found):', cachedArabicVoice.name, cachedArabicVoice.lang);
+    // STEP 2: Male voice keywords (covers Windows, macOS, Android, Chrome OS)
+    const maleKeywords = [
+      'naayf', 'maged', 'tarik',  // Apple/macOS male Arabic voices
+      'hadi',                       // Google male Arabic voice
+      'male',                       // Generic male tag
+      'ahmad', 'ahmed',             // Common male Arabic voice names
+      'omar', 'ali', 'youssef',    // Other possible male voice names
+      'majed', 'fahad', 'khalid'   // Microsoft & Samsung male voices
+    ];
+    
+    // Try to find a male Egyptian voice first (best case)
+    let selectedVoice = null;
+    
+    if (egyptianVoices.length > 0) {
+      const maleEgyptian = egyptianVoices.find(v => 
+        maleKeywords.some(kw => v.name.toLowerCase().includes(kw))
+      );
+      if (maleEgyptian) {
+        selectedVoice = maleEgyptian;
+        console.log('✅ Male Egyptian Arabic voice found!', maleEgyptian.name);
+      } else {
+        // Use any Egyptian voice (even if female - better accent)
+        selectedVoice = egyptianVoices[0];
+        console.log('✅ Egyptian Arabic voice selected (accent priority):', selectedVoice.name);
+      }
     }
+    
+    // If no Egyptian voice, try to find any male Arabic voice
+    if (!selectedVoice) {
+      const maleArabic = arabicVoices.find(v => 
+        maleKeywords.some(kw => v.name.toLowerCase().includes(kw))
+      );
+      if (maleArabic) {
+        selectedVoice = maleArabic;
+        console.log('✅ Male Arabic voice found:', maleArabic.name, maleArabic.lang);
+      }
+    }
+    
+    // Last fallback: any Arabic voice
+    if (!selectedVoice) {
+      selectedVoice = arabicVoices[0];
+      console.log('✅ Fallback Arabic voice selected:', selectedVoice.name, selectedVoice.lang);
+    }
+    
+    cachedArabicVoice = selectedVoice;
   } else {
     cachedArabicVoice = null;
-    console.warn('⚠️ No Arabic voice installed on this system. Will use default system voice.');
-    // Log all available voices for debugging
+    console.warn('⚠️ No Arabic voice installed. Will use default system voice.');
     cachedVoices.forEach(v => console.log('  Available voice:', v.name, v.lang));
   }
 }
@@ -660,18 +702,21 @@ function speakText(text, onEndCallback) {
     window.speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
     
     // CRITICAL: Always set voice and lang from our cached data
     if (cachedArabicVoice) {
       utterance.voice = cachedArabicVoice;
       utterance.lang = cachedArabicVoice.lang;
-      console.log('Speaking with Arabic voice:', cachedArabicVoice.name);
+      // Lower pitch = deeper/masculine voice, slower rate = clearer Arabic reading
+      utterance.rate = 0.85;
+      utterance.pitch = 0.75;
+      utterance.volume = 1.0;
+      console.log('Speaking with Arabic voice:', cachedArabicVoice.name, '| pitch: 0.75 (masculine) | rate: 0.85 (clear)');
     } else {
-      // No Arabic voice? Use default system voice with English lang
-      // This ensures Chrome does NOT silently discard the utterance
+      // No Arabic voice? Use default system voice
       utterance.lang = 'en-US';
+      utterance.rate = 0.9;
+      utterance.pitch = 0.8;
       console.log('Speaking with default system voice (no Arabic voice installed)');
     }
     
